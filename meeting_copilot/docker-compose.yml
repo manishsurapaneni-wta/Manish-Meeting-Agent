@@ -1,0 +1,20 @@
+version: '3.8'
+
+services:
+  meeting-copilot:
+    build: .
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./audio:/app/audio
+      - ./output:/app/output
+    environment:
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - HF_TOKEN=${HF_TOKEN}
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s 

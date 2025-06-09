@@ -1,0 +1,297 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Meeting Copilot - Upload & Search</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/wavesurfer.js@7"></script>
+    <script src="https://unpkg.com/wavesurfer.js@7/dist/plugin/regions.min.js"></script>
+    <script src="https://unpkg.com/wavesurfer.js@7/dist/plugin/timeline.min.js"></script>
+</head>
+<body class="bg-gray-100 min-h-screen">
+    <div class="container mx-auto px-4 py-8">
+        <div class="max-w-2xl mx-auto">
+            <!-- Upload Section -->
+            <div class="bg-white rounded-lg shadow-md p-6 mb-8">
+                <h1 class="text-2xl font-bold text-gray-800 mb-6">Meeting Copilot</h1>
+                
+                <div class="mb-8">
+                    <h2 class="text-xl font-semibold text-gray-700 mb-4">Upload Meeting Audio</h2>
+                    <p class="text-gray-600 mb-4">Upload your meeting recording (.mp3 or .wav) to generate a comprehensive analysis.</p>
+                    
+                    <form action="/upload" method="post" enctype="multipart/form-data" class="space-y-4">
+                        <div class="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center">
+                            <input type="file" 
+                                   name="file" 
+                                   accept=".mp3,.wav" 
+                                   required
+                                   class="hidden" 
+                                   id="file-input"
+                                   onchange="updateFileName(this)">
+                            <label for="file-input" 
+                                   class="cursor-pointer inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700">
+                                <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
+                                </svg>
+                                Choose File
+                            </label>
+                            <p id="file-name" class="mt-2 text-sm text-gray-500">No file chosen</p>
+                        </div>
+                        
+                        <button type="submit" 
+                                class="w-full bg-blue-600 text-white py-2 px-4 rounded-md hover:bg-blue-700 transition-colors">
+                            Upload and Analyze
+                        </button>
+                    </form>
+                </div>
+                
+                <div id="status" class="hidden">
+                    <div class="animate-pulse">
+                        <div class="h-4 bg-gray-200 rounded w-3/4 mb-2"></div>
+                        <div class="h-4 bg-gray-200 rounded w-1/2"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Search Section -->
+            <div class="bg-white rounded-lg shadow-md p-6 mb-8">
+                <h2 class="text-xl font-semibold text-gray-700 mb-4">Search Past Meetings</h2>
+                <p class="text-gray-600 mb-4">Search across all meeting memories to find specific information, decisions, or action items.</p>
+                
+                <form action="/search" method="get" class="space-y-4">
+                    <div class="flex gap-2">
+                        <input type="text" 
+                               name="query" 
+                               placeholder="e.g., What decisions were made in Q1?" 
+                               required
+                               class="flex-1 px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        <button type="submit" 
+                                class="px-6 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 transition-colors">
+                            Search
+                        </button>
+                    </div>
+                </form>
+
+                <!-- Search Results -->
+                <div id="search-results" class="mt-6 hidden">
+                    <h3 class="text-lg font-semibold text-gray-700 mb-3">Search Results</h3>
+                    <div class="space-y-4">
+                        <!-- Results will be populated here -->
+                    </div>
+                </div>
+            </div>
+
+            <!-- Audio Playback Section -->
+            <div class="bg-white rounded-lg shadow-md p-6 mb-8">
+                <h2 class="text-xl font-semibold text-gray-700 mb-4">Audio Playback</h2>
+                
+                <!-- Waveform Container -->
+                <div id="waveform" class="mb-4"></div>
+                
+                <!-- Timeline Container -->
+                <div id="timeline" class="mb-4"></div>
+                
+                <!-- Playback Controls -->
+                <div class="flex items-center justify-center space-x-4 mb-4">
+                    <button onclick="wavesurfer.playPause()" 
+                            class="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors">
+                        <span id="play-pause-text">Play</span>
+                    </button>
+                    <button onclick="wavesurfer.stop()" 
+                            class="px-4 py-2 bg-gray-600 text-white rounded-md hover:bg-gray-700 transition-colors">
+                        Stop
+                    </button>
+                    <div class="flex items-center space-x-2">
+                        <span class="text-sm text-gray-600">Volume:</span>
+                        <input type="range" 
+                               min="0" 
+                               max="1" 
+                               step="0.1" 
+                               value="1" 
+                               onchange="wavesurfer.setVolume(this.value)"
+                               class="w-24">
+                    </div>
+                </div>
+
+                <!-- Annotations List -->
+                <div id="annotations" class="mt-4">
+                    <h3 class="text-lg font-semibold text-gray-700 mb-3">Meeting Highlights</h3>
+                    <div class="space-y-2">
+                        <!-- Annotations will be populated here -->
+                    </div>
+                </div>
+            </div>
+
+            <!-- Summary Link -->
+            <div class="mt-4 text-center">
+                <a href="/summary" 
+                   class="inline-block px-6 py-2 bg-purple-600 text-white rounded-md hover:bg-purple-700 transition-colors">
+                    View All Meetings Summary
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Initialize WaveSurfer
+        const wavesurfer = WaveSurfer.create({
+            container: '#waveform',
+            waveColor: '#97a7b3',
+            progressColor: '#2c3e50',
+            height: 100,
+            plugins: [
+                WaveSurfer.Timeline.create({
+                    container: '#timeline'
+                }),
+                WaveSurfer.Regions.create({
+                    regionsMinLength: 2,
+                    dragSelection: true
+                })
+            ]
+        });
+
+        // Handle file upload
+        function updateFileName(input) {
+            const fileName = input.files[0]?.name || 'No file chosen';
+            document.getElementById('file-name').textContent = fileName;
+        }
+
+        // Handle form submission
+        document.querySelector('form[action="/upload"]').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            const formData = new FormData(this);
+            const statusDiv = document.getElementById('status');
+            statusDiv.classList.remove('hidden');
+            
+            try {
+                const response = await fetch('/upload', {
+                    method: 'POST',
+                    body: formData
+                });
+                const data = await response.json();
+                
+                if (data.status === 'success') {
+                    // Load audio file
+                    const audioPath = `/audio/${data.meeting_id}_${formData.get('file').name}`;
+                    wavesurfer.load(audioPath);
+                    
+                    // Add regions for decisions and action items
+                    if (data.analysis) {
+                        addAnnotations(data.analysis);
+                    }
+                }
+            } catch (error) {
+                console.error('Upload failed:', error);
+            } finally {
+                statusDiv.classList.add('hidden');
+            }
+        });
+
+        // Handle search form submission
+        document.querySelector('form[action="/search"]').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            const query = this.querySelector('input[name="query"]').value;
+            const resultsDiv = document.getElementById('search-results');
+            
+            try {
+                const response = await fetch(`/search?query=${encodeURIComponent(query)}`);
+                const data = await response.json();
+                
+                if (data.status === 'success') {
+                    resultsDiv.classList.remove('hidden');
+                    const resultsHtml = data.results.map(result => `
+                        <div class="bg-gray-50 p-4 rounded-md">
+                            <p class="text-gray-800">${result.text}</p>
+                            <p class="text-sm text-gray-500 mt-2">
+                                Meeting: ${result.metadata.meeting_id} | 
+                                Section: ${result.metadata.section}
+                            </p>
+                        </div>
+                    `).join('');
+                    
+                    resultsDiv.querySelector('.space-y-4').innerHTML = resultsHtml;
+                }
+            } catch (error) {
+                console.error('Search failed:', error);
+            }
+        });
+
+        // Add annotations from meeting analysis
+        function addAnnotations(analysis) {
+            const annotationsDiv = document.getElementById('annotations');
+            let annotationsHtml = '';
+            
+            // Process decisions
+            if (analysis.decisions) {
+                analysis.decisions.forEach((decision, index) => {
+                    const start = decision.start_time || 0;
+                    const end = decision.end_time || start + 5;
+                    
+                    wavesurfer.addRegion({
+                        start: start,
+                        end: end,
+                        color: 'rgba(255, 87, 34, 0.3)',
+                        data: { type: 'decision', text: decision.text }
+                    });
+                    
+                    annotationsHtml += `
+                        <div class="flex items-start space-x-2 p-2 hover:bg-gray-50 rounded cursor-pointer"
+                             onclick="wavesurfer.seekTo(${start / wavesurfer.getDuration()})">
+                            <span class="text-orange-500">●</span>
+                            <div>
+                                <p class="text-sm font-medium">Decision</p>
+                                <p class="text-sm text-gray-600">${decision.text}</p>
+                            </div>
+                        </div>
+                    `;
+                });
+            }
+            
+            // Process action items
+            if (analysis.action_items) {
+                analysis.action_items.forEach((item, index) => {
+                    const start = item.start_time || 0;
+                    const end = item.end_time || start + 5;
+                    
+                    wavesurfer.addRegion({
+                        start: start,
+                        end: end,
+                        color: 'rgba(76, 175, 80, 0.3)',
+                        data: { type: 'action', text: item.text }
+                    });
+                    
+                    annotationsHtml += `
+                        <div class="flex items-start space-x-2 p-2 hover:bg-gray-50 rounded cursor-pointer"
+                             onclick="wavesurfer.seekTo(${start / wavesurfer.getDuration()})">
+                            <span class="text-green-500">●</span>
+                            <div>
+                                <p class="text-sm font-medium">Action Item</p>
+                                <p class="text-sm text-gray-600">${item.text}</p>
+                                <p class="text-xs text-gray-500">Owner: ${item.owner || 'Unassigned'}</p>
+                            </div>
+                        </div>
+                    `;
+                });
+            }
+            
+            annotationsDiv.querySelector('.space-y-2').innerHTML = annotationsHtml;
+        }
+
+        // Update play/pause button text
+        wavesurfer.on('play', () => {
+            document.getElementById('play-pause-text').textContent = 'Pause';
+        });
+        
+        wavesurfer.on('pause', () => {
+            document.getElementById('play-pause-text').textContent = 'Play';
+        });
+
+        // Handle region clicks
+        wavesurfer.on('region-click', (region) => {
+            wavesurfer.seekTo(region.start / wavesurfer.getDuration());
+            wavesurfer.play();
+        });
+    </script>
+</body>
+</html> 
